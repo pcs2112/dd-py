@@ -24,7 +24,7 @@ def main(args):
 		else:
 			cmd()
 		close_db_connections()
-	except KeyboardInterrupt as e:
+	except KeyboardInterrupt:
 		close_db_connections()
 	except Exception as e:
 		close_db_connections()
