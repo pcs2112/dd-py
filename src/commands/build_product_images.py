@@ -1,7 +1,7 @@
 import os
 import shutil
 import re
-from src.utils import get_db_connection
+from src.db import get_db_connection
 from src.config import get_config
 
 app_config = get_config()
