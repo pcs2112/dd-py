@@ -26,14 +26,19 @@ def get_all_master_products(product_ids=''):
         "WHERE "
         "   `productParentID` = 0"
     )
-    
+
+    params = []
+
     if product_ids:
-        query = f'{query} AND `productID` IN ({product_ids})'
-    
+        query = f'{query} AND `productID` IN (%s)'
+        params.append(product_ids)
+
     cursor = profile_db.cursor()
-    cursor.execute(query)
-    
-    return cursor.fetchall()
+    cursor.execute(query, params)
+    result = cursor.fetchall()
+    cursor.close()
+
+    return result
 
 
 def get_product_colors(product_id):
@@ -54,8 +59,10 @@ def get_product_colors(product_id):
 
     cursor = profile_db.cursor()
     cursor.execute(query, (product_id,))
+    result = cursor.fetchall()
+    cursor.close()
 
-    return cursor.fetchall()
+    return result
 
 
 def get_product_color_images(product_id):
@@ -72,13 +79,15 @@ def get_product_color_images(product_id):
         "WHERE"
         "   `productID` = %s"
     )
-    
+
     cursor = core_db.cursor()
     cursor.execute(query, (product_id,))
-    
-    return cursor.fetchall()
-    
-    
+    result = cursor.fetchall()
+    cursor.close()
+
+    return result
+
+
 def build_product_images(product_ids=''):
     try:
         shutil.rmtree(out_dir)
@@ -87,20 +96,20 @@ def build_product_images(product_ids=''):
         pass
 
     os.mkdir(out_dir)
-    
+
     masters = get_all_master_products(product_ids)
-    
+
     for product in masters:
         product_id = product[0]
         product_code = product[1]
         product_name = product[3]
-        
+
         print(f'Processing product id={product_id} code={product_code} name={product_name}')
-       
+
         colors = get_product_colors(product_id)
         colors_images = get_product_color_images(product_id)
         colors_map = {}
-        
+
         for color in colors:
             color_id = color[0]
             colors_map[color_id] = {
@@ -108,7 +117,7 @@ def build_product_images(product_ids=''):
                 'color_name': color[1],
                 'images': []
             }
-            
+
         for color_image in colors_images:
             color_id = color_image[1]
             if color_id in colors_map:
@@ -122,7 +131,7 @@ def build_product_images(product_ids=''):
             shutil.rmtree(out_product_dir)
         except FileNotFoundError:
             pass
-        
+
         product_dir_created = False
         try:
             # Create the product directory
@@ -138,7 +147,7 @@ def build_product_images(product_ids=''):
                 #  Iterate over each product color image
                 for color_image in color['images']:
                     color_image_id = color_image[0]
-            
+
                     # Iterate over the image path fields in the product-image data
                     for i in range(2, 4):
                         if color_image[i]:
@@ -147,18 +156,18 @@ def build_product_images(product_ids=''):
                             if os.path.isfile(existing_path):
                                 # Get the existing file name from the path
                                 existing_filename = os.path.basename(existing_path)
-                        
+
                                 # Remove the product code reference from the existing file name
                                 existing_filename = existing_filename.replace(
                                     f"{product_code.lower().replace('/', '')}_", ''
                                 )
-                                
+
                                 # Create the new file name
                                 new_filename = re.sub('[^0-9a-zA-Z]+', '-', color['color_name'].lower())
                                 new_filename = os.path.join(
                                     out_product_dir,
                                     f'{new_filename}_{color_id}_{color_image_id}_{existing_filename}'
                                 )
-                        
+
                                 # Copy the existing file into the new file
                                 shutil.copyfile(existing_path, new_filename)
