@@ -12,162 +12,184 @@ core_db = get_db_connection('core')
 out_dir = f"{app_config['OUT_DIR']}/products"
 in_dir = app_config['IN_DIR']
 cdn_base_path = app_config['CDN_BASE_PATH']
+log_filename = f"{app_config['OUT_DIR']}/last_run.log"
 
 
 def get_all_master_products(product_ids=''):
-    """
-    :return: Returns the list of all master products
-    """
-    query = (
-        "SELECT "
-        "   `productID`, `productCode`, `productIntegrationID`, `productName` "
-        "FROM "
-        "   `product` "
-        "WHERE "
-        "   `productParentID` = 0"
-    )
+	"""
+	:return: Returns the list of all master products
+	"""
+	query = (
+		"SELECT "
+		"   `productID`, `productCode`, `productIntegrationID`, `productName` "
+		"FROM "
+		"   `product` "
+		"WHERE "
+		"   `productParentID` = 0"
+	)
 
-    params = []
+	params = []
 
-    if product_ids:
-        query = f'{query} AND `productID` IN (%s)'
-        params.append(product_ids)
+	if product_ids:
+		query = f'{query} AND `productID` IN (%s)'
+		params.append(product_ids)
 
-    cursor = profile_db.cursor()
-    cursor.execute(query, params)
-    result = cursor.fetchall()
-    cursor.close()
+	cursor = profile_db.cursor()
+	cursor.execute(query, params)
+	result = cursor.fetchall()
+	cursor.close()
 
-    return result
+	return result
 
 
 def get_product_colors(product_id):
-    """
-    :param int product_id: Product master ID
-    :return: Returns a list of product colors
-    """
-    query = (
-        "SELECT "
-        "   `colourID`, `colourDesc` "
-        "FROM "
-        "   `product` AS `p` "
-        "INNER JOIN `product-colour` AS `pc` ON `p`.`productColourID` = `pc`.`colourID` "
-        "WHERE "
-        "   `productParentID` = %s "
-        "GROUP BY `pc`.`colourID`"
-    )
+	"""
+	:param int product_id: Product master ID
+	:return: Returns a list of product colors
+	"""
+	query = (
+		"SELECT "
+		"   `colourID`, `colourDesc` "
+		"FROM "
+		"   `product` AS `p` "
+		"INNER JOIN `product-colour` AS `pc` ON `p`.`productColourID` = `pc`.`colourID` "
+		"WHERE "
+		"   `productParentID` = %s "
+		"GROUP BY `pc`.`colourID`"
+	)
 
-    cursor = profile_db.cursor()
-    cursor.execute(query, (product_id,))
-    result = cursor.fetchall()
-    cursor.close()
+	cursor = profile_db.cursor()
+	cursor.execute(query, (product_id,))
+	result = cursor.fetchall()
+	cursor.close()
 
-    return result
+	return result
 
 
 def get_product_color_images(product_id):
-    """
-    :param int product_id: Product master ID
-    :return: Returns a list of product colors images
-    """
-    query = (
-        "SELECT "
-        "   `productImageID`, `colourID`, `productImageFileOriginalHTTPLocation`, "
-        "   `productImageFileMediumHTTPLocation`, `productImageFileThumbnailHTTPLocation` "
-        "FROM "
-        "   `product-image` "
-        "WHERE"
-        "   `productID` = %s"
-    )
+	"""
+	:param int product_id: Product master ID
+	:return: Returns a list of product colors images
+	"""
+	query = (
+		"SELECT "
+		"   `productImageID`, `colourID`, `productImageFileOriginalHTTPLocation`, "
+		"   `productImageFileMediumHTTPLocation`, `productImageFileThumbnailHTTPLocation` "
+		"FROM "
+		"   `product-image` "
+		"WHERE"
+		"   `productID` = %s"
+	)
 
-    cursor = core_db.cursor()
-    cursor.execute(query, (product_id,))
-    result = cursor.fetchall()
-    cursor.close()
+	cursor = core_db.cursor()
+	cursor.execute(query, (product_id,))
+	result = cursor.fetchall()
+	cursor.close()
 
-    return result
+	return result
 
 
 def build_product_images(product_ids=''):
-    try:
-        shutil.rmtree(out_dir)
-        print(f'Emptied {out_dir}')
-    except FileNotFoundError:
-        pass
+	# Remove the existing out dir
+	try:
+		shutil.rmtree(out_dir)
+		print(f'Emptied {out_dir}')
+	except FileNotFoundError:
+		pass
 
-    os.mkdir(out_dir)
+	# Create the out dir
+	os.mkdir(out_dir)
 
-    masters = get_all_master_products(product_ids)
+	# Stores all the processing info
+	logs = []
 
-    for product in masters:
-        product_id = product[0]
-        product_code = product[1]
-        product_name = product[3]
+	masters = get_all_master_products(product_ids)
 
-        print(f'Processing product id={product_id} code={product_code} name={product_name}')
+	for product in masters:
+		product_id = product[0]
+		product_code = product[1]
+		product_name = product[3]
 
-        colors = get_product_colors(product_id)
-        colors_images = get_product_color_images(product_id)
-        colors_map = {}
+		print(f'Processing product id={product_id} code={product_code} name={product_name}')
 
-        for color in colors:
-            color_id = color[0]
-            colors_map[color_id] = {
-                'color_id': color_id,
-                'color_name': color[1],
-                'images': []
-            }
+		colors = get_product_colors(product_id)
+		colors_images = get_product_color_images(product_id)
+		colors_map = {}
 
-        for color_image in colors_images:
-            color_id = color_image[1]
-            if color_id in colors_map:
-                colors_map[color_id]['images'].append(color_image)
+		for color in colors:
+			color_id = color[0]
+			colors_map[color_id] = {
+				'color_id': color_id,
+				'color_name': color[1],
+				'images': []
+			}
 
-        # Product directory name
-        out_product_dir = os.path.join(out_dir, product_code.replace('/', '-'))
+		for color_image in colors_images:
+			color_id = color_image[1]
+			if color_id in colors_map:
+				colors_map[color_id]['images'].append(color_image)
 
-        # Remove the product directory
-        try:
-            shutil.rmtree(out_product_dir)
-        except FileNotFoundError:
-            pass
+		# Product directory name
+		out_product_dir = os.path.join(out_dir, product_code.replace('/', '-'))
 
-        product_dir_created = False
-        try:
-            # Create the product directory
-            os.mkdir(out_product_dir)
-            product_dir_created = True
-        except OSError:
-            print("Creation of the directory %s failed" % out_product_dir)
-            pass
+		# Remove the product directory
+		try:
+			shutil.rmtree(out_product_dir)
+		except FileNotFoundError:
+			pass
 
-        if product_dir_created:
-            # Iterate over each product color
-            for color_id, color in colors_map.items():
-                #  Iterate over each product color image
-                for color_image in color['images']:
-                    color_image_id = color_image[0]
+		product_dir_created = False
+		try:
+			# Create the product directory
+			os.mkdir(out_product_dir)
+			product_dir_created = True
+		except OSError:
+			print("Creation of the directory %s failed" % out_product_dir)
+			pass
 
-                    # Iterate over the image path fields in the product-image data
-                    for i in range(2, 4):
-                        if color_image[i]:
-                            # Get the path for the color image
-                            existing_path = os.path.join(in_dir, color_image[i].replace(cdn_base_path, '').lstrip('/'))
-                            if os.path.isfile(existing_path):
-                                # Get the existing file name from the path
-                                existing_filename = os.path.basename(existing_path)
+		if product_dir_created:
+			images_processed = []
 
-                                # Remove the product code reference from the existing file name
-                                existing_filename = existing_filename.replace(
-                                    f"{product_code.lower().replace('/', '')}_", ''
-                                )
+			# Iterate over each product color
+			for color_id, color in colors_map.items():
+				#  Iterate over each product color image
+				for color_image in color['images']:
+					color_image_id = color_image[0]
 
-                                # Create the new file name
-                                new_filename = re.sub('[^0-9a-zA-Z]+', '-', color['color_name'].lower())
-                                new_filename = os.path.join(
-                                    out_product_dir,
-                                    f'{new_filename}_{color_id}_{color_image_id}_{existing_filename}'
-                                )
+					# Iterate over the image path fields in the product-image data
+					for i in range(2, 4):
+						if color_image[i]:
+							# Get the path for the color image
+							existing_path = os.path.join(in_dir, color_image[i].replace(cdn_base_path, '').lstrip('/'))
+							if os.path.isfile(existing_path):
+								# Get the existing file name from the path
+								existing_filename = os.path.basename(existing_path)
 
-                                # Copy the existing file into the new file
-                                shutil.copyfile(existing_path, new_filename)
+								# Remove the product code reference from the existing file name
+								existing_filename = existing_filename.replace(
+									f"{product_code.lower().replace('/', '')}_", ''
+								)
+
+								# Create the new file name
+								new_filename = re.sub('[^0-9a-zA-Z]+', '-', color['color_name'].lower())
+								new_filename = os.path.join(
+									out_product_dir,
+									f'{new_filename}_{color_id}_{color_image_id}_{existing_filename}'
+								)
+
+								# Copy the existing file into the new file
+								shutil.copyfile(existing_path, new_filename)
+
+								# Log image created
+								images_processed.append(new_filename)
+
+			# Generate product log
+			logs.append(f'product id={product_id} code={product_code} name={product_name} images_count={len()}')
+
+
+
+	log_fh = open(log_filename, 'w')
+	for log in logs:
+		log_fh.writelines(log)
+
+	log_fh.close()
