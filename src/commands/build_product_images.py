@@ -12,7 +12,7 @@ core_db = get_db_connection('core')
 out_dir = f"{app_config['OUT_DIR']}/products"
 in_dir = app_config['IN_DIR']
 cdn_base_path = app_config['CDN_BASE_PATH']
-log_filename = f"{app_config['OUT_DIR']}/last_run.log"
+log_filename = f"{app_config['OUT_DIR']}/build_product_images.log"
 
 
 def get_all_master_products(product_ids=''):
@@ -184,12 +184,18 @@ def build_product_images(product_ids=''):
 								images_processed.append(new_filename)
 
 			# Generate product log
-			logs.append(f'product id={product_id} code={product_code} name={product_name} images_count={len()}')
-
-
+			images_processed_ct = len(images_processed)
+			logs.append(
+				f'product id={product_id} code={product_code} name={product_name} '
+				f'images_count={images_processed_ct}\n'
+			)
+			
+			if images_processed_ct > 0:
+				for image_processed in images_processed:
+					logs.append(f"\t{image_processed.replace(app_config['OUT_DIR'], '')}\n")
+				
+				logs.append('\n')
 
 	log_fh = open(log_filename, 'w')
-	for log in logs:
-		log_fh.writelines(log)
-
+	log_fh.writelines(logs)
 	log_fh.close()
