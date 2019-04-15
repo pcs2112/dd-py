@@ -13,8 +13,7 @@ load_dotenv(dotenv_path)
 OUT_DIR = os.path.join(ROOT_DIR, 'out')
 
 # Set the settings
-protocol_pattern = re.compile(r"https?://")
-cdn_base_url = protocol_pattern.sub('//', os.getenv('CDN_BASE_URL').rstrip('/'))
+cdn_base_url = re.sub(r"https?://", '//', os.getenv('CDN_BASE_URL').rstrip('/'))
 
 config = {
 	'CORE_DB_HOST': os.getenv('CORE_DB_HOST'),
