@@ -11,7 +11,7 @@ core_db = get_db_connection('core')
 
 out_dir = f"{app_config['OUT_DIR']}/products"
 in_dir = app_config['IN_DIR']
-cdn_base_path = app_config['CDN_BASE_PATH']
+cdn_base_url = app_config['CDN_BASE_URL']
 log_filename = f"{app_config['OUT_DIR']}/build_product_images.log"
 
 
@@ -160,7 +160,7 @@ def build_product_images(product_ids=''):
 					for i in range(2, 4):
 						if color_image[i]:
 							# Get the path for the color image
-							existing_path = os.path.join(in_dir, color_image[i].replace(cdn_base_path, '').lstrip('/'))
+							existing_path = os.path.join(in_dir, color_image[i].replace(cdn_base_url, '').lstrip('/'))
 							if os.path.isfile(existing_path):
 								# Get the existing file name from the path
 								existing_filename = os.path.basename(existing_path)

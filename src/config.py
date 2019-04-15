@@ -1,5 +1,6 @@
 """Application configuration."""
 import os
+import re
 from dotenv import load_dotenv
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -12,6 +13,8 @@ load_dotenv(dotenv_path)
 OUT_DIR = os.path.join(ROOT_DIR, 'out')
 
 # Set the settings
+protocol_pattern = re.compile(r"https?://")
+cdn_base_url = protocol_pattern.sub('//', os.getenv('CDN_BASE_URL').rstrip('/'))
 
 config = {
 	'CORE_DB_HOST': os.getenv('CORE_DB_HOST'),
@@ -28,7 +31,7 @@ config = {
 	'OUT_DIR': OUT_DIR,
 	'IN_DIR': os.getenv('IN_DIR').rstrip('/'),
 	'IS_PRODUCTION': os.getenv('PRODUCTION') == '1',
-	'CDN_BASE_PATH': os.getenv('CDN_BASE_PATH').rstrip('/')
+	'CDN_BASE_URL': cdn_base_url
 }
 
 
