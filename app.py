@@ -15,6 +15,8 @@ def main(args):
     if len(args) == 1:
         print("Please enter a command.")
         _exit()
+
+    cmd = None
     
     try:
         module = importlib.import_module('src.commands')
