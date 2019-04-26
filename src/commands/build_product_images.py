@@ -189,10 +189,10 @@ def build_product_images(product_ids=''):
                                 images_processed.append(new_filename)
                                 
                                 # Create the hover image
-                                if color_is_default:
+                                if color_is_default and i == 2:
                                     new_hover_filename = os.path.join(
                                         out_product_dir,
-                                        f'{product_code_filename}_hover_{color_id}_{color_image_id}_{existing_filename}'
+                                        f'{product_code_filename}_hover.{existing_filename.split(".")[-1]}'
                                     )
 
                                     # Copy the existing file into the new file
