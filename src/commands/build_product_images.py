@@ -28,14 +28,11 @@ def get_all_master_products(product_ids=''):
         "   `productParentID` = 0"
     )
     
-    params = []
-    
     if product_ids:
-        query = f'{query} AND `productID` IN (%s)'
-        params.append(product_ids)
+        query = f'{query} AND `productID` IN ({product_ids})'
     
     cursor = profile_db.cursor()
-    cursor.execute(query, params)
+    cursor.execute(query)
     result = cursor.fetchall()
     cursor.close()
     
@@ -74,11 +71,13 @@ def get_product_color_images(product_id):
     query = (
         "SELECT "
         "   `productImageID`, `colourID`, `productImageFileOriginalHTTPLocation`, "
-        "   `productImageFileMediumHTTPLocation`, `productImageFileThumbnailHTTPLocation` "
+        "   `productImageFileMediumHTTPLocation`, `productImageFileThumbnailHTTPLocation`, `productImageIsDefault` "
         "FROM "
         "   `product-image` "
         "WHERE"
-        "   `productID` = %s"
+        "   `productID` = %s "
+        "ORDER BY"
+        "   `productImageSortOrder` ASC"
     )
     
     cursor = core_db.cursor()
@@ -109,6 +108,7 @@ def build_product_images(product_ids=''):
         product_id = product[0]
         product_code = product[1]
         product_name = product[3]
+        product_code_filename = product_code.replace('/', '-')
         
         print(f'Processing product id={product_id} code={product_code} name={product_name}')
         
@@ -121,16 +121,20 @@ def build_product_images(product_ids=''):
             colors_map[color_id] = {
                 'color_id': color_id,
                 'color_name': color[1],
-                'images': []
+                'images': [],
+                'default_image_idx': 0
             }
         
         for color_image in colors_images:
             color_id = color_image[1]
+            
             if color_id in colors_map:
                 colors_map[color_id]['images'].append(color_image)
+                if color_image[5] == 'yes':
+                    colors_map[color_id]['default_image_idx'] = len(colors_map[color_id]['images']) - 1
         
         # Product directory name
-        out_product_dir = os.path.join(out_dir, product_code.replace('/', '-'))
+        out_product_dir = os.path.join(out_dir, product_code_filename)
         
         # Remove the product directory
         try:
@@ -153,8 +157,9 @@ def build_product_images(product_ids=''):
             # Iterate over each product color
             for color_id, color in colors_map.items():
                 # Iterate over each product color image
-                for color_image in color['images']:
+                for idx, color_image in enumerate(color['images']):
                     color_image_id = color_image[0]
+                    color_is_default = True if color['default_image_idx'] == idx else False
                     
                     # Iterate over the image path fields in the product-image data
                     for i in range(2, 4):
@@ -176,13 +181,26 @@ def build_product_images(product_ids=''):
                                     out_product_dir,
                                     f'{new_filename}_{color_id}_{color_image_id}_{existing_filename}'
                                 )
-                                
+
                                 # Copy the existing file into the new file
                                 shutil.copyfile(existing_path, new_filename)
-                                
+
                                 # Log image created
                                 images_processed.append(new_filename)
-            
+                                
+                                # Create the hover image
+                                if color_is_default:
+                                    new_hover_filename = os.path.join(
+                                        out_product_dir,
+                                        f'{product_code_filename}_hover_{color_id}_{color_image_id}_{existing_filename}'
+                                    )
+
+                                    # Copy the existing file into the new file
+                                    shutil.copyfile(existing_path, new_hover_filename)
+
+                                    # Log image created
+                                    images_processed.append(new_hover_filename)
+ 
             # Generate product log
             images_processed_ct = len(images_processed)
             logs.append(
