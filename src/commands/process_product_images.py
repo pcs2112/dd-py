@@ -92,14 +92,14 @@ def get_product_color_images(product_id):
 
 def download_product_images(product_ids=''):
     # Remove the existing in dir
-    try:
-        shutil.rmtree(products_in_dir)
-        print(f'Emptied {products_in_dir}')
-    except FileNotFoundError:
-        pass
+    # try:
+    #     shutil.rmtree(products_in_dir)
+    #     print(f'Emptied {products_in_dir}')
+    # except FileNotFoundError:
+    #     pass
     
     # Create the in dir
-    os.mkdir(products_in_dir)
+    # os.mkdir(products_in_dir)
 
     masters = get_all_master_products(product_ids)
     
@@ -133,19 +133,22 @@ def download_product_images(product_ids=''):
         in_product_dir = os.path.join(products_in_dir, product_code_filename)
 
         # Remove the product directory
-        try:
-            shutil.rmtree(in_product_dir)
-        except FileNotFoundError:
-            pass
+        # try:
+        #     shutil.rmtree(in_product_dir)
+        # except FileNotFoundError:
+        #     pass
 
         product_dir_created = False
-        try:
-            # Create the product directory
-            os.mkdir(in_product_dir)
+        if os.path.isdir(in_product_dir):
             product_dir_created = True
-        except OSError:
-            print("Creation of the directory %s failed" % in_product_dir)
-            pass
+        else:
+            try:
+                # Create the product directory
+                os.mkdir(in_product_dir)
+                product_dir_created = True
+            except OSError:
+                print("Creation of the directory %s failed" % in_product_dir)
+                pass
 
         if product_dir_created:
             for color_id, color in colors_map.items():
@@ -155,10 +158,14 @@ def download_product_images(product_ids=''):
                             normalized_img_url = color_image[i].replace(cdn_base_url, '').lstrip('/')
                             normalized_img_url = f"http:{cdn_base_url}/{normalized_img_url}"
                             filename = os.path.basename(normalized_img_url)
-                            try:
-                                urlretrieve(normalized_img_url, f'{in_product_dir}/{filename}')
-                            except HTTPError:
-                                continue
+                            filename = f'{in_product_dir}/{filename}'
+                            
+                            # Download image if it doesn't exist
+                            if not os.path.isfile(filename):
+                                try:
+                                    urlretrieve(normalized_img_url, filename)
+                                except HTTPError:
+                                    continue
 
 
 def build_product_images(product_ids=''):
