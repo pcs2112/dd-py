@@ -1,1 +1,1 @@
-from .build_product_images import build_product_images
+from .process_product_images import build_product_images, download_product_images

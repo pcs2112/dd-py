@@ -1,6 +1,8 @@
 import os
 import shutil
 import re
+from urllib.request import urlretrieve
+from urllib.error import HTTPError
 from src.db import get_db_connection
 from src.config import get_config
 
@@ -9,8 +11,8 @@ app_config = get_config()
 profile_db = get_db_connection('profile')
 core_db = get_db_connection('core')
 
-out_dir = f"{app_config['OUT_DIR']}/products"
-in_dir = app_config['IN_DIR']
+products_out_dir = f"{app_config['OUT_DIR']}/products"
+products_in_dir = f"{app_config['IN_DIR']}/products"
 cdn_base_url = app_config['CDN_BASE_URL']
 log_filename = f"{app_config['OUT_DIR']}/build_product_images.log"
 
@@ -88,16 +90,87 @@ def get_product_color_images(product_id):
     return result
 
 
+def download_product_images(product_ids=''):
+    # Remove the existing in dir
+    try:
+        shutil.rmtree(products_in_dir)
+        print(f'Emptied {products_in_dir}')
+    except FileNotFoundError:
+        pass
+    
+    # Create the in dir
+    os.mkdir(products_in_dir)
+
+    masters = get_all_master_products(product_ids)
+    
+    for product in masters:
+        product_id = product[0]
+        product_code = product[1]
+        product_name = product[3]
+        product_code_filename = product_code.replace('/', '-')
+
+        print(f'Processing product id={product_id} code={product_code} name={product_name}')
+
+        colors = get_product_colors(product_id)
+        colors_images = get_product_color_images(product_id)
+        colors_map = {}
+        
+        for color in colors:
+            color_id = color[0]
+            colors_map[color_id] = {
+                'color_id': color_id,
+                'color_name': color[1],
+                'images': []
+            }
+
+        for color_image in colors_images:
+            color_id = color_image[1]
+    
+            if color_id in colors_map:
+                colors_map[color_id]['images'].append(color_image)
+
+        # Product directory name
+        in_product_dir = os.path.join(products_in_dir, product_code_filename)
+
+        # Remove the product directory
+        try:
+            shutil.rmtree(in_product_dir)
+        except FileNotFoundError:
+            pass
+
+        product_dir_created = False
+        try:
+            # Create the product directory
+            os.mkdir(in_product_dir)
+            product_dir_created = True
+        except OSError:
+            print("Creation of the directory %s failed" % in_product_dir)
+            pass
+
+        if product_dir_created:
+            for color_id, color in colors_map.items():
+                for color_image in color['images']:
+                    for i in range(2, 4):
+                        if color_image[i]:
+                            normalized_img_url = color_image[i].replace(cdn_base_url, '').lstrip('/')
+                            normalized_img_url = f"http:{cdn_base_url}/{normalized_img_url}"
+                            filename = os.path.basename(normalized_img_url)
+                            try:
+                                urlretrieve(normalized_img_url, f'{in_product_dir}/{filename}')
+                            except HTTPError:
+                                continue
+
+
 def build_product_images(product_ids=''):
     # Remove the existing out dir
     try:
-        shutil.rmtree(out_dir)
-        print(f'Emptied {out_dir}')
+        shutil.rmtree(products_out_dir)
+        print(f'Emptied {products_out_dir}')
     except FileNotFoundError:
         pass
     
     # Create the out dir
-    os.mkdir(out_dir)
+    os.mkdir(products_out_dir)
     
     # Stores all the processing info
     logs = []
@@ -134,7 +207,7 @@ def build_product_images(product_ids=''):
                     colors_map[color_id]['default_image_idx'] = len(colors_map[color_id]['images']) - 1
         
         # Product directory name
-        out_product_dir = os.path.join(out_dir, product_code_filename)
+        out_product_dir = os.path.join(products_out_dir, product_code_filename)
         
         # Remove the product directory
         try:
@@ -165,7 +238,9 @@ def build_product_images(product_ids=''):
                     for i in range(2, 4):
                         if color_image[i]:
                             # Get the path for the color image
-                            existing_path = os.path.join(in_dir, color_image[i].replace(cdn_base_url, '').lstrip('/'))
+                            existing_path = os.path.join(
+                                products_in_dir, color_image[i].replace(cdn_base_url, '').lstrip('/')
+                            )
                             if os.path.isfile(existing_path):
                                 # Get the existing file name from the path
                                 existing_filename = os.path.basename(existing_path)

@@ -12,6 +12,9 @@ load_dotenv(dotenv_path)
 # Out dir
 OUT_DIR = os.path.join(ROOT_DIR, 'out')
 
+# IN dir
+IN_DIR = os.path.join(ROOT_DIR, 'in')
+
 # Set the settings
 cdn_base_url = re.sub(r"https?://", '//', os.getenv('CDN_BASE_URL').rstrip('/'))
 
@@ -28,7 +31,7 @@ config = {
     'PROFILE_DB_PASSWORD': os.getenv('PROFILE_DB_PASSWORD'),
     'ROOT_DIR': ROOT_DIR,
     'OUT_DIR': OUT_DIR,
-    'IN_DIR': os.getenv('IN_DIR').rstrip('/'),
+    'IN_DIR': IN_DIR,
     'IS_PRODUCTION': os.getenv('PRODUCTION') == '1',
     'CDN_BASE_URL': cdn_base_url
 }
